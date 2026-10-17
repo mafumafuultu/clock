@@ -1,0 +1,238 @@
+
+/* ===== 共通 ===== */
+html, body { margin: 0; height: 100%; background: transparent; }
+body { display: flex; align-items: center; justify-content: center; }
+
+#clock {
+  --scale: 1;
+  font-size: calc(10px * var(--scale));   /* 以降すべて em 指定 → scale で全体が拡縮 */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
+  white-space: nowrap;
+}
+#clock { font-variant-numeric: tabular-nums; }   /* 等幅数字に対応したフォントなら数字の幅も揃う */
+
+/* 幅は JS が「そのフォント・サイズでの最大幅」を em で計算して変数に入れる（measure()）。
+   → 時刻が変わっても枠のサイズは変わらない */
+#time     { font-family: var(--time-font); line-height: 1; width: var(--time-w, auto); text-align: center; box-sizing: border-box; }
+#datetime { font-family: var(--date-font); display: flex; align-items: center; justify-content: center; }
+#calender { display: inline-block; width: var(--cal-w, auto); text-align: center; box-sizing: border-box; }
+#week     { display: inline-block; width: var(--week-w, auto); text-align: center; box-sizing: border-box; }
+
+/* ===== simple（シンプル）===== */
+#clock.simple {
+  --time-font: 'Noto Sans JP', sans-serif;
+  --date-font: 'Noto Sans JP', sans-serif;
+  color: #fff;
+  text-shadow: 0 .2em 1em rgba(0,0,0,.55);
+  gap: .4em;
+}
+.simple #time     { font-size: 10.4em; font-weight: 500; letter-spacing: .03em; }
+.simple #datetime { font-size: 2.4em; font-weight: 300; letter-spacing: .12em; gap: .4em; opacity: .9; }
+
+/* ===== fresh（爽やか）===== */
+#clock.fresh {
+  --time-font: 'Outfit', 'Noto Sans JP', sans-serif;
+  --date-font: 'Outfit', 'Noto Sans JP', sans-serif;
+  padding: 2.2em 4.4em;
+  background: rgba(255,255,255,.88);
+  border-radius: 3.2em;
+  box-shadow: 0 1em 3em rgba(10,60,120,.25);
+  gap: .6em;
+}
+.fresh #time     { font-size: 9.6em; font-weight: 600; color: #1593d6; letter-spacing: .02em; }
+.fresh #datetime { font-size: 2.4em; font-weight: 300; color: #3d6b8a; gap: .5em; }
+.fresh #week     { background: #7fe0c4; color: #0b4a3a; font-weight: 600; font-size: .75em; padding: .1em .8em; border-radius: 999px; }
+
+/* ===== cute（かわいい）===== */
+#clock.cute {
+  --time-font: 'Zen Maru Gothic', sans-serif;
+  --date-font: 'Zen Maru Gothic', sans-serif;
+  padding: 2.2em 4em;
+  background: #fffaf2;
+  border: .4em dashed #ff8fc0;
+  border-radius: 4.8em;
+  gap: .6em;
+}
+.cute #time     { font-size: 9.2em; font-weight: 900; color: #ff6fae; letter-spacing: .02em; }
+.cute #datetime { font-size: 2.4em; font-weight: 500; color: #8a6aa8; gap: .4em; }
+.cute #week {
+  height: 1.4em; padding: 0 .45em;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 999px; background: #8fe3cf; color: #17564a;
+  font-weight: 900; font-size: .85em;
+}
+
+/* ===== stylish（スタイリッシュ）===== */
+#clock.stylish {
+  --time-font: 'Space Grotesk', 'Noto Sans JP', sans-serif;
+  --date-font: 'Space Grotesk', 'Noto Sans JP', sans-serif;
+  padding: 2.4em 4.8em;
+  background: rgba(255,255,255,.06);
+  border: .1em solid rgba(255,255,255,.22);
+  align-items: flex-start;
+  gap: 1.2em;
+  color: #fff;
+}
+.stylish #time     { font-size: 9.2em; font-weight: 300; letter-spacing: .1em; }
+.stylish #datetime {
+  align-self: stretch; padding-top: 1.2em;
+  border-top: .1em solid; border-image: linear-gradient(90deg, #4df0e0, transparent) 1;
+  font-size: 1.8em; font-weight: 500; color: #c9cbe0; letter-spacing: .3em; gap: .6em;
+}
+.stylish #week { color: #4df0e0; }
+
+/* ===== pop（ポップ）===== */
+#clock.pop {
+  --time-font: 'Dela Gothic One', 'Noto Sans JP', sans-serif;
+  --date-font: 'Zen Kaku Gothic New', 'Noto Sans JP', sans-serif;
+  padding: 2em 4em 3.4em;
+  background: #ffd23f;
+  border: .5em solid #111;
+  border-radius: 2em;
+  box-shadow: 1em 1em 0 #111;
+  margin-bottom: 2em;
+}
+.pop #time { font-size: 9.2em; color: #111; }
+.pop #datetime {
+  position: absolute; right: -1.4em; bottom: -2em;
+  transform: rotate(-4deg);
+  background: #ff4f9a; color: #fff;
+  border: .4em solid #111; border-radius: 1.2em;
+  padding: .3em 1.4em;
+  font-size: 2.4em; font-weight: 900;
+}
+.pop[data-format="kanji"] #week::before { content: "（"; }
+.pop[data-format="kanji"] #week::after  { content: "）"; }
+.pop[data-format="slash"] #week         { margin-left: .5em; }
+
+/* ===== outline（縁取りテロップ）===== */
+#clock.outline {
+  --time-font: 'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif;
+  --date-font: 'M PLUS Rounded 1c', 'Noto Sans JP', sans-serif;
+  color: #fff; font-weight: 800; gap: .3em;
+}
+.outline #time     { font-size: 10em; -webkit-text-stroke: .2em #1f4fd8; paint-order: stroke fill; text-shadow: 0 .06em 0 rgba(20,40,120,.4); }
+.outline #datetime { font-size: 3em; -webkit-text-stroke: .2em #1f4fd8; paint-order: stroke fill; gap: .4em; }
+.outline #week     { color: #ffe14d; }
+
+/* ===== bar（横長バー）===== */
+#clock.bar {
+  --time-font: 'Noto Sans JP', sans-serif;
+  --date-font: 'Noto Sans JP', sans-serif;
+  flex-direction: row; gap: 1.6em;
+  padding: .8em 2.6em; background: rgba(15,18,28,.78); border-radius: 999px; color: #fff;
+}
+.bar #time     { font-size: 4.8em; font-weight: 500; letter-spacing: .04em; }
+.bar #datetime { font-size: 2em; font-weight: 300; letter-spacing: .1em; gap: .5em; padding-left: 1.4em; border-left: .1em solid rgba(255,255,255,.35); }
+.bar #week     { color: #7fd6ff; }
+
+/* ===== glass（すりガラス）===== */
+#clock.glass {
+  --time-font: 'Outfit', 'Noto Sans JP', sans-serif;
+  --date-font: 'Outfit', 'Noto Sans JP', sans-serif;
+  padding: 2em 4.4em; gap: .4em; color: #fff;
+  background: rgba(255,255,255,.14);
+  border: .1em solid rgba(255,255,255,.45); border-radius: 2.8em;
+  -webkit-backdrop-filter: blur(1.4em) saturate(1.4); backdrop-filter: blur(1.4em) saturate(1.4);
+  box-shadow: 0 1em 3em rgba(0,0,0,.25), inset 0 .1em 0 rgba(255,255,255,.5);
+  text-shadow: 0 .1em .6em rgba(0,0,0,.3);
+}
+.glass #time     { font-size: 9em; font-weight: 300; letter-spacing: .04em; }
+.glass #datetime { font-size: 2.2em; font-weight: 300; letter-spacing: .1em; gap: .5em; }
+
+/* ===== sticker（ステッカー）===== */
+#clock.sticker {
+  --time-font: 'Mochiy Pop One', 'Noto Sans JP', sans-serif;
+  --date-font: 'Mochiy Pop One', 'Noto Sans JP', sans-serif;
+  padding: 1.8em 3.6em 2em; gap: .6em;
+  background: #fff35c; border: .6em solid #fff; border-radius: 3em;
+  box-shadow: 0 .6em 1.4em rgba(0,0,0,.35);
+  transform: rotate(-3deg);
+}
+.sticker #time     { font-size: 8.6em; color: #ff4f8b; text-shadow: .04em .05em 0 #fff, .08em .1em 0 rgba(0,0,0,.15); }
+.sticker #datetime { font-size: 2.2em; background: #3b2a6b; color: #fff; padding: .25em 1em; border-radius: 999px; gap: .5em; }
+.sticker #week     { color: #fff35c; }
+
+/* ===== pastel（ゆめかわ）===== */
+#clock.pastel {
+  --time-font: 'Zen Maru Gothic', sans-serif;
+  --date-font: 'Zen Maru Gothic', sans-serif;
+  padding: 2.2em 4.4em; gap: .5em;
+  background: linear-gradient(135deg, #c9f2e4, #e2d4ff 55%, #ffe0d6);
+  border-radius: 3.6em; box-shadow: 0 .8em 2.4em rgba(150,120,220,.3);
+}
+.pastel #time     { font-size: 9.4em; font-weight: 900; color: #7b6bd6; text-shadow: 0 .06em 0 rgba(255,255,255,.8); }
+.pastel #datetime { font-size: 2.3em; font-weight: 500; color: #8f7fb0; gap: .5em; }
+.pastel #week     { background: #fff; color: #7b6bd6; font-weight: 900; font-size: .85em; padding: .1em .8em; border-radius: 999px; }
+
+/* ===== retropop（昭和レトロ）===== */
+#clock.retropop {
+  --time-font: 'Mochiy Pop One', 'Noto Sans JP', sans-serif;
+  --date-font: 'Zen Maru Gothic', sans-serif;
+  padding: 2em 4em; gap: .6em;
+  background: #f6e6c8; border: .4em solid #d9532b; border-radius: 1.6em;
+  box-shadow: .7em .7em 0 #2a8f9d;
+  margin: 0 .7em .7em 0;
+}
+.retropop #time     { font-size: 9em; color: #d9532b; }
+.retropop #datetime { font-size: 2.3em; font-weight: 900; color: #2a8f9d; gap: .5em; }
+.retropop #week     { background: #2a8f9d; color: #f6e6c8; font-size: .85em; padding: .05em .7em; border-radius: .5em; }
+
+/* ===== neon（ネオン）===== */
+#clock.neon {
+  --time-font: 'Orbitron', 'Noto Sans JP', sans-serif;
+  --date-font: 'Orbitron', 'Noto Sans JP', sans-serif;
+  padding: 2em 4.4em; gap: .7em;
+  border: .2em solid #ff6bd6; border-radius: 1.2em;
+  box-shadow: 0 0 .6em #ff6bd6, 0 0 1.6em rgba(255,107,214,.6), inset 0 0 .8em rgba(255,107,214,.5);
+}
+.neon #time     { font-size: 8.4em; font-weight: 800; color: #eafcff; text-shadow: 0 0 .06em #fff, 0 0 .2em #19e6ff, 0 0 .45em #19e6ff, 0 0 .9em #0aa3c8; }
+.neon #datetime { font-size: 2.2em; font-weight: 500; color: #ffd9f5; letter-spacing: .12em; gap: .5em; text-shadow: 0 0 .15em #ff6bd6, 0 0 .5em #ff6bd6; }
+
+/* ===== pixel（ドット絵）===== */
+#clock.pixel {
+  --time-font: 'DotGothic16', 'Noto Sans JP', sans-serif;
+  --date-font: 'DotGothic16', 'Noto Sans JP', sans-serif;
+  padding: 2em 4.4em; gap: .6em; margin: .4em;
+  background: #1a1c2c;
+  box-shadow: 0 -.4em 0 0 #f4f4f4, 0 .4em 0 0 #f4f4f4, -.4em 0 0 0 #f4f4f4, .4em 0 0 0 #f4f4f4, 1em 1.2em 0 0 rgba(0,0,0,.45);
+}
+.pixel #time     { font-size: 9em; color: #ffcd75; }
+.pixel #datetime { font-size: 2.6em; color: #73eff7; gap: .5em; }
+.pixel #week     { color: #ef7d57; }
+
+/* ===== flip（フリップ時計）===== */
+#clock.flip {
+  --time-font: 'Oswald', 'Noto Sans JP', sans-serif;
+  --date-font: 'Oswald', 'Noto Sans JP', sans-serif;
+  gap: .8em;
+}
+.flip #time {
+  position: relative; font-size: 11em; font-weight: 500; color: #f5f5f5;
+  padding: .12em .4em; border-radius: .1em;
+  background: linear-gradient(#2c2c30 50%, #161618 50%);
+  box-shadow: 0 .06em .2em rgba(0,0,0,.5);
+}
+.flip #time::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: .02em; background: #000; }
+.flip #datetime    { font-size: 2.4em; color: #ddd; background: #1d1d1f; padding: .2em 1em; border-radius: .5em; gap: .6em; letter-spacing: .08em; }
+.flip #week        { color: #ffb347; }
+
+/* ===== wa（和モダン）===== */
+#clock.wa {
+  --time-font: 'Shippori Mincho', 'Noto Serif JP', serif;
+  --date-font: 'Shippori Mincho', 'Noto Serif JP', serif;
+  padding: 2.6em 5em; gap: .8em;
+  background: #14213d;
+  box-shadow: inset 0 0 0 .5em #14213d, inset 0 0 0 .6em #c9a227, 0 .8em 2em rgba(0,0,0,.35);
+}
+.wa #time     { font-size: 9.2em; font-weight: 600; color: #f3ead2; letter-spacing: .04em; }
+.wa #datetime { font-size: 2.2em; font-weight: 500; color: #c9a227; letter-spacing: .2em; gap: .3em; }
+.wa[data-format="kanji"] #week::before { content: "（"; }
+.wa[data-format="kanji"] #week::after  { content: "）"; }
+
+/* ===== width 指定時: 指定幅の中で中身を中央に置く ===== */
+#clock[data-fixed] { align-items: center; justify-content: center; }

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Document</title>
+	<style>
+#objects {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+}
+.wrap {
+	& > span {
+		display: block;
+	}
+	& > iframe {
+		width: 600px;
+		height: 300px;
+		border: none;
+	}
+}
+
+
+	</style>
+</head>
+<body>
+	<div id="objects"></div>
+
+<script>
+
+const themes = [
+	'simple',
+	'fresh',
+	'cute',
+	'stylish',
+	'pop',
+	'outline',
+	'bar',
+	'glass',
+	'sticker',
+	'pastel',
+	'retropop',
+	'neon',
+	'pixel',
+	'flip',
+	'wa'
+].map(v => {
+	const wrap = document.createElement('div');
+	wrap.className = 'wrap';
+	const title = document.createElement('span');
+	title.textContent = `design=${v}`;
+	const obj = document.createElement('iframe');
+	obj.src = `./clock-Temporal.html?design=${v}&bg=royalblue&width=40em`;
+
+	wrap.append(title, obj);
+	return wrap;
+});
+document.getElementById('objects').append(...themes)
+
+</script>
+
+</body>
+</html>

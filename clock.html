@@ -1,0 +1,401 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>Digital Clock</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;600&family=Zen+Maru+Gothic:wght@500;900&family=Space+Grotesk:wght@300;500&family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@900&family=Noto+Sans+JP:wght@300;500&family=M+PLUS+Rounded+1c:wght@800&family=Mochiy+Pop+One&family=Orbitron:wght@500;800&family=DotGothic16&family=Oswald:wght@500&family=Shippori+Mincho:wght@500;600&display=swap">
+<link rel="stylesheet" href="./style.css">
+</head>
+
+<body>
+<div id="clock" class="simple">
+		<time id="time" datetime="14:35">14:35</time>
+		<div id="datetime">
+				<time id="calender" datetime="2026/10/17">2026/10/17</time><span id="week">Sat</span>
+		</div>
+</div>
+
+<script>
+/* =========================================================
+	 設定（ここを書き換える。URLパラメータが優先される）
+	 例: clock.html?design=pop&format=kanji&scale=1.5&font=Kosugi+Maru
+	 ---------------------------------------------------------
+	 design   : simple | fresh | cute | stylish | pop |
+							outline | bar | glass | sticker | pastel | retropop | neon | pixel | flip | wa
+	 format   : slash（2026/10/17 + Sat） | kanji（2026年10月17日 + 土）
+	 scale    : 全体の拡大率（1 = 標準）
+	 font     : 時刻・日付の両方に使うフォント名（Google Fonts または端末にあるフォント）
+	 fontTime : 時刻だけのフォント名
+	 fontDate : 日付・曜日だけのフォント名
+	 bg       : 確認用の背景色（例: bg=%23223344）。省略時は透明
+	 tz       : タイムゾーン（例: tz=Asia/Tokyo）。省略時は端末の設定
+	 width    : 時計全体の幅（例: width=480 は480px。30em や 50vw など単位つきも可）。
+							指定すると自動の幅調整（measure）を行わず、その幅をそのまま使う
+	 dev      : on にすると調整パネルを表示（例: ?dev=on）。結果の ?～ をコピーできる
+	 ========================================================= */
+const CONFIG = {
+	design:   'simple',
+	format:   'slash',
+	scale:    1,
+	font:     '',
+	fontTime: '',
+	fontDate: '',
+	bg:       '',
+	tz:       '',
+	width:    ''
+};
+
+const DESIGNS = ['simple', 'fresh', 'cute', 'stylish', 'pop',
+								 'outline', 'bar', 'glass', 'sticker', 'pastel', 'retropop', 'neon', 'pixel', 'flip', 'wa'];
+/* Date#getDay() は 0（日）〜 6（土） */
+const WEEK_EN = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEK_JA = ['日', '月', '火', '水', '木', '金', '土'];
+const WEEK_KEY = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+
+const params = new URLSearchParams(location.search);
+const cfg = Object.assign({}, CONFIG);
+for (const k of Object.keys(CONFIG)) {
+	if (params.has(k)) cfg[k] = params.get(k);
+}
+
+const $clock = document.getElementById('clock');
+const $time  = document.getElementById('time');
+const $cal   = document.getElementById('calender');
+const $week  = document.getElementById('week');
+
+
+/* デザイン（クラス）切り替え */
+function setDesign(name) {
+	if (!DESIGNS.includes(name)) name = 'simple';
+	$clock.classList.remove(...DESIGNS);
+	$clock.classList.add(name);
+}
+
+/* 日付形式の切り替え */
+function setFormat(f) {
+	$clock.dataset.format = (f === 'kanji') ? 'kanji' : 'slash';
+}
+
+/* 枠サイズの固定
+	 プロポーショナルフォントだと数字ごとに幅が違うため、
+	 「その時点のデザイン・フォント・サイズで取りうる最大幅」を実測して em で固定する。
+	 - 時刻   : 0〜9 の各数字で "dd:dd" を作り、最大の幅
+	 - 日付   : 0〜9 の各数字で年月日を作り、最大の幅
+	 - 曜日   : 7曜日のうち最大の幅
+	 em 指定なので scale を変えても比率は保たれる。 */
+function measure() {
+	if (parseWidth(cfg.width)) {                         // width 指定あり → 調整せず指定の幅を使う
+		for (const v of ['--time-w', '--cal-w', '--week-w']) $clock.style.removeProperty(v);
+		return;
+	}
+	const probe = $clock.cloneNode(true);
+	Object.assign(probe.style, {
+		position: 'absolute', left: '-99999px', top: '0',
+		visibility: 'hidden', pointerEvents: 'none', transform: 'none', margin: '0'
+	});
+	for (const v of ['--time-w', '--cal-w', '--week-w']) probe.style.setProperty(v, 'auto');
+
+	const kanji  = $clock.dataset.format === 'kanji';
+	const digits = [...'0123456789'];
+
+	/* 1) 書き込みフェーズ: 候補をすべて DOM に並べる（この間レイアウトは走らない）
+				元の要素の id・クラス・属性を引き継いだ複製を作るので、スタイルは本物と同じに当たる */
+	const spawn = (selector, texts) => {
+		const base = probe.querySelector(selector);
+		const els = texts.map(text => {
+			const el = base.cloneNode(false);
+			el.textContent = text;
+			el.style.flex = 'none';                 // 並べても縮まないようにする
+			base.parentNode.insertBefore(el, base);
+			return el;
+		});
+		base.remove();
+		return els;
+	};
+	const timeEls = spawn('#time',     digits.map(n => `${n}${n}:${n}${n}`));
+	const calEls  = spawn('#calender', digits.map(n => kanji ? `${n.repeat(4)}年${n}${n}月${n}${n}日`
+																													 : `${n.repeat(4)}/${n}${n}/${n}${n}`));
+	const weekEls = spawn('#week',     kanji ? WEEK_JA : WEEK_EN);
+	document.body.appendChild(probe);
+
+	/* 2) 読み取りフェーズ: 最初の getBoundingClientRect で1回だけレイアウトされ、以降は再計算なし */
+	const maxWidth = els => Math.max(...els.map(el => el.getBoundingClientRect().width));
+	const toEm = (els, px) => (Math.ceil(px / parseFloat(getComputedStyle(els[0]).fontSize) * 100) / 100 + 0.02) + 'em';
+
+	$clock.style.setProperty('--time-w', toEm(timeEls, maxWidth(timeEls)));
+	$clock.style.setProperty('--cal-w',  toEm(calEls,  maxWidth(calEls)));
+	$clock.style.setProperty('--week-w', toEm(weekEls, maxWidth(weekEls)));
+	probe.remove();
+}
+
+/* フォントの切り替え（Google Fonts にあれば自動で読み込む） */
+function fontStack(name) {
+	return `'${name.replace(/\+/g, ' ')}', 'Noto Sans JP', sans-serif`;
+}
+const loadedFonts = new Set();
+function loadFont(name) {
+	if (loadedFonts.has(name)) return;
+	loadedFonts.add(name);
+	const l = document.createElement('link');
+	l.rel = 'stylesheet';
+	l.href = 'https://fonts.googleapis.com/css2?family=' + encodeURIComponent(name.replace(/\+/g, ' ')).replace(/%20/g, '+') + '&display=swap';
+	document.head.appendChild(l);
+}
+function setFonts() {
+	const t = cfg.fontTime || cfg.font;
+	const d = cfg.fontDate || cfg.font;
+	if (t) { loadFont(t); $clock.style.setProperty('--time-font', fontStack(t)); }
+	else   { $clock.style.removeProperty('--time-font'); }   // 指定なし → デザイン既定のフォント
+	if (d) { loadFont(d); $clock.style.setProperty('--date-font', fontStack(d)); }
+	else   { $clock.style.removeProperty('--date-font'); }
+}
+
+/* 現在時刻（tz 指定があればそのタイムゾーンの年月日・時分・曜日） */
+let tzFormatter = null, tzFormatterKey = null;
+function nowParts() {
+	const now = new Date();
+	if (cfg.tz) {
+		try {
+			if (tzFormatterKey !== cfg.tz) {
+				tzFormatter = new Intl.DateTimeFormat('en-US', {
+					timeZone: cfg.tz, hourCycle: 'h23',
+					year: 'numeric', month: '2-digit', day: '2-digit',
+					hour: '2-digit', minute: '2-digit', weekday: 'short'
+				});
+				tzFormatterKey = cfg.tz;
+			}
+			const p = {};
+			for (const { type, value } of tzFormatter.formatToParts(now)) p[type] = value;
+			return { y: p.year, mo: p.month, d: p.day, h: p.hour, mi: p.minute, dow: WEEK_KEY[p.weekday] };
+		} catch (e) { /* 不正なタイムゾーンは端末の設定にフォールバック */ }
+	}
+	const pad = n => String(n).padStart(2, '0');
+	return { y: String(now.getFullYear()), mo: pad(now.getMonth() + 1), d: pad(now.getDate()),
+					 h: pad(now.getHours()), mi: pad(now.getMinutes()), dow: now.getDay() };
+}
+
+/* 表示更新 */
+function render() {
+	const t     = nowParts();
+	const kanji = $clock.dataset.format === 'kanji';
+
+	const hhmm     = `${t.h}:${t.mi}`;                                   // "14:35"
+	const slash    = `${t.y}/${t.mo}/${t.d}`;                            // "2026/10/17"
+	const dateText = kanji ? `${t.y}年${t.mo}月${t.d}日` : slash;
+	const weekText = (kanji ? WEEK_JA : WEEK_EN)[t.dow];
+
+	if ($time.textContent !== hhmm) {
+		$time.textContent = hhmm;
+		$time.setAttribute('datetime', hhmm);
+	}
+	if ($cal.textContent !== dateText) {
+		$cal.textContent = dateText;
+		$cal.setAttribute('datetime', slash);
+	}
+	if ($week.textContent !== weekText) $week.textContent = weekText;
+}
+
+/* width オプションの解釈: 数字だけなら px、単位つきはそのまま。不正な値は '' */
+function parseWidth(v) {
+	v = String(v ?? '').trim();
+	if (!v) return '';
+	if (/^\d+(\.\d+)?$/.test(v)) v += 'px';
+	return CSS.supports('width', v) ? v : '';
+}
+
+/* 設定をまとめて反映 */
+function applyConfig() {
+	const fixedWidth = parseWidth(cfg.width);
+	$clock.style.width = fixedWidth;                     // '' なら指定を外す
+	if (fixedWidth) $clock.dataset.fixed = 'on'; else delete $clock.dataset.fixed;
+	setDesign(cfg.design);
+	setFormat(cfg.format);
+	setFonts();
+	$clock.style.setProperty('--scale', parseFloat(cfg.scale) || 1);
+	document.body.style.background = cfg.bg || '';
+	render();
+	measure();
+}
+
+/* 初期化 */
+applyConfig();                                     // まず仮の幅を確定
+document.fonts.ready.then(measure);                // フォント読み込み完了後に再計算
+document.fonts.addEventListener('loadingdone', measure);
+(function tick() {
+	render();
+	setTimeout(tick, 1000 - (Date.now() % 1000));   // 秒の頭に合わせて更新
+})();
+
+/* コンソールから切り替えたい場合用: clockApi.setDesign('pop') など */
+window.clockApi = {
+	setDesign: n => { setDesign(n); measure(); },
+	setFormat: f => { setFormat(f); render(); measure(); }
+};
+
+/* =========================================================
+	 調整パネル（?dev=on のときだけ表示）
+	 ========================================================= */
+if (params.get('dev') === 'on') initDevPanel();
+
+function initDevPanel() {
+	const LABELS = {
+		simple: 'simple（シンプル）', fresh: 'fresh（爽やか）', cute: 'cute（かわいい）',
+		stylish: 'stylish（スタイリッシュ）', pop: 'pop（ポップ）', outline: 'outline（縁取り）',
+		bar: 'bar（横長バー）', glass: 'glass（すりガラス）', sticker: 'sticker（ステッカー）',
+		pastel: 'pastel（ゆめかわ）', retropop: 'retropop（昭和レトロ）', neon: 'neon（ネオン）',
+		pixel: 'pixel（ドット絵）', flip: 'flip（フリップ）', wa: 'wa（和モダン）'
+	};
+
+	const style = document.createElement('style');
+	style.textContent = `
+		#devpanel{position:fixed;top:12px;right:12px;z-index:9999;width:290px;max-height:calc(100vh - 24px);overflow:auto;
+			box-sizing:border-box;padding:12px;border-radius:10px;background:rgba(20,22,30,.94);color:#eee;
+			font:12px/1.5 system-ui,'Noto Sans JP',sans-serif;text-shadow:none;box-shadow:0 6px 24px rgba(0,0,0,.4)}
+		#devpanel h2{margin:0 0 8px;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+		#devpanel label{display:block;margin:8px 0 2px;color:#aab}
+		#devpanel input[type=text],#devpanel select,#devpanel textarea{width:100%;box-sizing:border-box;padding:5px 6px;
+			border:1px solid #556;border-radius:5px;background:#10121a;color:#eee;font:inherit}
+		#devpanel input[type=range]{width:100%}
+		#devpanel textarea{height:64px;resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all}
+		#devpanel .row{display:flex;gap:8px;align-items:center}
+		#devpanel button{padding:5px 8px;border:1px solid #6a7;border-radius:5px;background:#243;color:#eee;font:inherit;cursor:pointer}
+		#devpanel button:hover{background:#365}
+		#devpanel .hint{color:#889;font-size:11px;margin-top:2px}
+		#devpanel .bad{outline:2px solid #e55}
+		#devpanel.min .body{display:none}
+	`;
+	document.head.appendChild(style);
+
+	const panel = document.createElement('div');
+	panel.id = 'devpanel';
+	panel.innerHTML = `
+		<h2><span>調整パネル</span><button type="button" id="dp-min">−</button></h2>
+		<div class="body">
+			<label for="dp-design">design</label>
+			<select id="dp-design">${DESIGNS.map(d => `<option value="${d}">${LABELS[d] || d}</option>`).join('')}</select>
+
+			<label for="dp-format">format</label>
+			<select id="dp-format">
+				<option value="slash">slash（2026/10/17 + Sat）</option>
+				<option value="kanji">kanji（2026年10月17日 + 土）</option>
+			</select>
+
+			<label for="dp-scale">scale: <span id="dp-scale-v"></span></label>
+			<input type="range" id="dp-scale" min="0.3" max="3" step="0.05">
+
+			<label for="dp-width">width（時計全体の幅）</label>
+			<input type="text" id="dp-width" placeholder="例: 480 / 30em / 50vw（空欄＝自動調整）">
+			<div class="hint">指定すると自動の幅調整をせず、その幅を使います。数字だけなら px。</div>
+
+			<label for="dp-font">font（時刻・日付の両方）</label>
+			<input type="text" id="dp-font" placeholder="例: Kosugi Maru">
+			<label for="dp-fontTime">fontTime（時刻のみ）</label>
+			<input type="text" id="dp-fontTime">
+			<label for="dp-fontDate">fontDate（日付・曜日のみ）</label>
+			<input type="text" id="dp-fontDate">
+			<div class="hint">空欄＝デザイン既定のフォント。Google Fonts か端末にあるフォント名。</div>
+
+			<label>bg（確認用の背景色）</label>
+			<div class="row">
+				<input type="checkbox" id="dp-bguse"><label for="dp-bguse" style="margin:0">使う</label>
+				<input type="color" id="dp-bg" value="#223344">
+			</div>
+
+			<label for="dp-tz">tz（タイムゾーン）</label>
+			<input type="text" id="dp-tz" list="dp-tzlist" placeholder="例: Asia/Tokyo（空欄＝端末の設定）">
+			<datalist id="dp-tzlist"></datalist>
+
+			<label for="dp-out">結果（location.search）</label>
+			<textarea id="dp-out" readonly></textarea>
+			<div class="row" style="margin-top:6px">
+				<button type="button" id="dp-copy">?～ をコピー</button>
+				<button type="button" id="dp-copyurl">URLごとコピー</button>
+				<span id="dp-msg" class="hint"></span>
+			</div>
+		</div>`;
+	document.body.appendChild(panel);
+	const $ = id => panel.querySelector('#' + id);
+
+	try {
+		$('dp-tzlist').innerHTML = Intl.supportedValuesOf('timeZone').map(z => `<option value="${z}">`).join('');
+	} catch (e) { /* 非対応なら候補なし */ }
+
+	/* cfg → 入力欄 */
+	$('dp-design').value = DESIGNS.includes(cfg.design) ? cfg.design : 'simple';
+	$('dp-format').value = cfg.format === 'kanji' ? 'kanji' : 'slash';
+	$('dp-scale').value  = parseFloat(cfg.scale) || 1;
+	$('dp-width').value  = cfg.width;
+	$('dp-font').value     = cfg.font;
+	$('dp-fontTime').value = cfg.fontTime;
+	$('dp-fontDate').value = cfg.fontDate;
+	$('dp-tz').value       = cfg.tz;
+	if (/^#[0-9a-f]{6}$/i.test(cfg.bg)) { $('dp-bg').value = cfg.bg; $('dp-bguse').checked = true; }
+
+	const queryString = () => {
+		const q = new URLSearchParams();
+		for (const k of Object.keys(CONFIG)) {
+			const v = String(cfg[k] ?? ''), dv = String(CONFIG[k]);
+			if (v !== dv) q.set(k, v);          // 既定値と違うものだけを出力
+		}
+		const str = q.toString();
+		return str ? '?' + str : '';
+	};
+
+	function sync() {
+		cfg.design   = $('dp-design').value;
+		cfg.format   = $('dp-format').value;
+		cfg.scale    = $('dp-scale').value;
+		cfg.width    = $('dp-width').value.trim();
+		$('dp-width').classList.toggle('bad', !!cfg.width && !parseWidth(cfg.width));
+		cfg.font     = $('dp-font').value.trim();
+		cfg.fontTime = $('dp-fontTime').value.trim();
+		cfg.fontDate = $('dp-fontDate').value.trim();
+		cfg.bg       = $('dp-bguse').checked ? $('dp-bg').value : '';
+		cfg.tz       = $('dp-tz').value.trim();
+
+		let tzOk = true;
+		try { new Intl.DateTimeFormat('en-US', { timeZone: cfg.tz || undefined }); } catch (e) { tzOk = false; }
+		$('dp-tz').classList.toggle('bad', !tzOk);
+
+		$('dp-scale-v').textContent = parseFloat(cfg.scale).toFixed(2);
+		applyConfig();
+
+		const q = queryString();
+		$('dp-out').value = q;
+		history.replaceState(null, '', '?dev=on' + (q ? '&' + q.slice(1) : ''));   // リロードしても保持
+	}
+
+	let timer;
+	panel.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(sync, 250); });
+	panel.addEventListener('change', sync);
+
+	function copy(text) {
+		const done = ok => {
+			$('dp-msg').textContent = ok ? 'コピーしました' : 'コピーできませんでした';
+			setTimeout(() => { $('dp-msg').textContent = ''; }, 1800);
+		};
+		const fallback = () => {
+			const ta = $('dp-out'); const old = ta.value;
+			ta.value = text; ta.select();
+			let ok = false;
+			try { ok = document.execCommand('copy'); } catch (e) {}
+			ta.value = old;
+			done(ok);
+		};
+		if (navigator.clipboard && navigator.clipboard.writeText) {
+			navigator.clipboard.writeText(text).then(() => done(true), fallback);
+		} else { fallback(); }
+	}
+	$('dp-copy').addEventListener('click', () => copy($('dp-out').value));
+	$('dp-copyurl').addEventListener('click', () => copy(location.href.split(/[?#]/)[0] + $('dp-out').value));
+	$('dp-min').addEventListener('click', () => {
+		panel.classList.toggle('min');
+		$('dp-min').textContent = panel.classList.contains('min') ? '+' : '−';
+	});
+
+	sync();
+}
+</script>
+</body>
+</html>
