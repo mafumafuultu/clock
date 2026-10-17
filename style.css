@@ -234,5 +234,4 @@ body { display: flex; align-items: center; justify-content: center; }
 .wa[data-format="kanji"] #week::before { content: "（"; }
 .wa[data-format="kanji"] #week::after  { content: "）"; }
 
-/* ===== width 指定時: 指定幅の中で中身を中央に置く ===== */
 #clock[data-fixed] { align-items: center; justify-content: center; }
