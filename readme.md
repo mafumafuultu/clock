@@ -7,6 +7,8 @@
 
 A single-file digital clock (`clock.html`) built for stream overlays such as OBS browser sources. It has 15 switchable designs, a transparent background, and a built-in panel for tuning the options and copying the resulting URL.
 
+[Sample](https://mafumafuultu.github.io/clock/clock.html?design=pop&scale=1.5&font=Kosugi+Maru&dev=on)
+
 ![](./image.jxl)
 
 ## Usage

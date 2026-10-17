@@ -7,6 +7,8 @@
 
 OBS のブラウザソースなど、配信画面に重ねて使うためのデジタル時計（`clock.html` 1ファイル）です。15種類のデザインを切り替えられ、背景は透過です。設定を調整して、結果の URL をコピーするパネルも付いています。
 
+[Sample](https://mafumafuultu.github.io/clock/clock.html?design=pop&scale=1.5&font=Kosugi+Maru&dev=on)
+
 ![](./image.jxl)
 
 ## 使い方
